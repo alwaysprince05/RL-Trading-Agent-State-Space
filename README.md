@@ -1,4 +1,4 @@
-## dev/creator = tubakhxn
+## Developer: Prince Maurya (alwaysprince05)
 
 # 3D RL Trading Agent State Space Visualization
 
@@ -11,14 +11,19 @@ This project visualizes how a reinforcement learning (RL) trading agent explores
 - Animates the agent's learning process and trajectory
 - Optionally overlays a Q-value surface
 
-## How to fork
-1. Click the "Fork" button on the top right of the repository page on GitHub.
-2. Clone your forked repository:
+## Installation & Running
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/alwaysprince05/RL-Trading-Agent-State-Space.git
    ```
-   git clone https://github.com/YOUR-USERNAME/REPO-NAME.git
+2. Install requirements (matplotlib, numpy):
+   ```bash
+   pip install matplotlib numpy
    ```
-3. Install requirements (see code for dependencies: matplotlib, numpy)
-4. Run the script to view the visualization
+3. Run the script to view the visualization:
+   ```bash
+   python rl_trading_3d_visualization.py
+   ```
 
 ## Relevant Wikipedia links
 - [Reinforcement learning](https://en.wikipedia.org/wiki/Reinforcement_learning)
