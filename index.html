@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D RL Trading Agent State Space Visualization</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d0f13;
+            --card-bg: rgba(22, 28, 36, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --color-buy: #10b981;
+            --color-sell: #ef4444;
+            --color-hold: #6b7280;
+            --color-accent: #6366f1;
+            --font-main: 'Outfit', sans-serif;
+            --font-display: 'Orbitron', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, transparent 100%);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .logo-section h1 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-section p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.2rem;
+        }
+
+        .dashboard-container {
+            display: flex;
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            backdrop-filter: blur(15px);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            z-index: 5;
+        }
+
+        .viz-area {
+            flex: 1;
+            position: relative;
+            background-color: #0b0c10;
+        }
+
+        #plot-div {
+            width: 100%;
+            height: 100%;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Controls styling */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--color-accent);
+            cursor: pointer;
+        }
+
+        .btn {
+            background-color: var(--color-accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-main);
+            width: 100%;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        /* Stats display */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .badge-buy { background-color: rgba(16, 185, 129, 0.2); color: var(--color-buy); }
+        .badge-sell { background-color: rgba(239, 68, 68, 0.2); color: var(--color-sell); }
+        .badge-hold { background-color: rgba(107, 114, 128, 0.2); color: var(--color-hold); }
+
+        /* Loader */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(99, 102, 241, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--color-accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <h1>RL Trading Agent</h1>
+            <p>3D State Space Exploration & Learning Path</p>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <div id="connection-status" class="badge" style="background-color: rgba(99, 102, 241, 0.2); color: #818cf8; display: flex; align-items: center; gap: 0.5rem;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #818cf8;"></div>
+                Simulating
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Control sidebar -->
+        <div class="sidebar">
+            <div class="card">
+                <div class="card-title">Agent Controller</div>
+                
+                <div class="buttons-grid" style="margin-bottom: 1rem;">
+                    <button id="play-pause-btn" class="btn">Play</button>
+                    <button id="reset-btn" class="btn btn-secondary">Reset</button>
+                </div>
+
+                <div class="control-group">
+                    <label for="speed-range">Animation Speed (ms/step)</label>
+                    <input type="range" id="speed-range" min="10" max="200" value="40">
+                    <span id="speed-val" style="font-size: 0.8rem; text-align: right; color: var(--text-secondary);">40 ms</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="steps-range">Simulation Steps</label>
+                    <input type="range" id="steps-range" min="100" max="500" value="300">
+                    <span id="steps-val" style="font-size: 0.8rem; text-align: right; color: var(--text-secondary);">300 steps</span>
+                </div>
+
+                <button id="simulate-btn" class="btn btn-secondary">Run New Simulation</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Live State Metrics</div>
+                <div class="stat-row">
+                    <span>Current Step</span>
+                    <span id="stat-step" class="stat-value">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Action Taken</span>
+                    <span id="stat-action" class="badge badge-hold">HOLD</span>
+                </div>
+                <div class="stat-row">
+                    <span>Price</span>
+                    <span id="stat-price" class="stat-value">100.00</span>
+                </div>
+                <div class="stat-row">
+                    <span>Momentum</span>
+                    <span id="stat-momentum" class="stat-value">0.00</span>
+                </div>
+                <div class="stat-row">
+                    <span>Volatility</span>
+                    <span id="stat-volatility" class="stat-value">1.00</span>
+                </div>
+                <div class="stat-row">
+                    <span>Q-Value</span>
+                    <span id="stat-qval" class="stat-value">0.00</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Color Legend</div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-buy);"></div>
+                        <span>Buy Action</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-sell);"></div>
+                        <span>Sell Action</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-hold);"></div>
+                        <span>Hold Action</span>
+                    </div>
+                    <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 24px; height: 12px; background: linear-gradient(90deg, #440154, #21918c, #fde725); opacity: 0.5; border-radius: 2px;"></div>
+                        <span>Q-value surface (Average Volatility)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Plot Visualization -->
+        <div class="viz-area">
+            <div id="loader" class="loader">
+                <div class="spinner"></div>
+                <p>Generating environment...</p>
+            </div>
+            <div id="plot-div"></div>
+        </div>
+    </div>
+
+    <script>
+        // Normal distribution helper (Box-Muller transform)
+        function randomNormal(mean = 0, stdDev = 1) {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random(); 
+            while(v === 0) v = Math.random();
+            const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return num * stdDev + mean;
+        }
+
+        // Simulate RL Trading Agent
+        class RLTradingAgentSimulator {
+            constructor(nSteps = 300) {
+                this.nSteps = nSteps;
+                this.states = [];
+                this.actions = [];
+                this.qValues = [];
+                this.simulate();
+            }
+
+            simulate() {
+                let price = 100;
+                let momentum = 0;
+                let volatility = 1;
+                let q = 0.0;
+
+                for (let t = 0; t < this.nSteps; t++) {
+                    price += randomNormal(momentum, volatility);
+                    momentum += randomNormal(0, 0.1);
+                    volatility = Math.max(0.5, volatility + randomNormal(0, 0.05));
+
+                    let action;
+                    if (t < this.nSteps / 3) {
+                        action = Math.floor(Math.random() * 3); // 0: Hold, 1: Buy, 2: Sell
+                    } else if (t < 2 * this.nSteps / 3) {
+                        action = momentum >= -momentum ? (momentum >= 0 ? 1 : 0) : (-momentum >= 0 ? 2 : 0);
+                    } else {
+                        const buyVal = momentum + 0.5 * q;
+                        const sellVal = -momentum + 0.5 * q;
+                        const holdVal = 0.1 * q;
+                        if (buyVal >= sellVal && buyVal >= holdVal) action = 1;
+                        else if (sellVal >= buyVal && sellVal >= holdVal) action = 2;
+                        else action = 0;
+                    }
+
+                    q = 0.9 * q + 0.1 * (action === 1 ? 1 : action === 2 ? -1 : 0);
+
+                    this.states.push([price, momentum, volatility]);
+                    this.actions.push(action);
+                    this.qValues.push(q);
+                }
+            }
+        }
+
+        // Dashboard/Visualization Manager
+        let simData = null;
+        let animationFrame = 0;
+        let isPlaying = false;
+        let playInterval = null;
+        let speedMs = 40;
+        let totalSteps = 300;
+
+        const actionText = ["HOLD", "BUY", "SELL"];
+        const actionBadges = ["badge-hold", "badge-buy", "badge-sell"];
+
+        // DOM elements
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const speedRange = document.getElementById('speed-range');
+        const speedVal = document.getElementById('speed-val');
+        const stepsRange = document.getElementById('steps-range');
+        const stepsVal = document.getElementById('steps-val');
+        const simulateBtn = document.getElementById('simulate-btn');
+        const loader = document.getElementById('loader');
+
+        const statStep = document.getElementById('stat-step');
+        const statAction = document.getElementById('stat-action');
+        const statPrice = document.getElementById('stat-price');
+        const statMomentum = document.getElementById('stat-momentum');
+        const statVolatility = document.getElementById('stat-volatility');
+        const statQval = document.getElementById('stat-qval');
+
+        function generateData() {
+            loader.classList.remove('hidden');
+            simData = new RLTradingAgentSimulator(totalSteps);
+            animationFrame = 0;
+            updateStats(0);
+            renderPlot();
+        }
+
+        function updateStats(frame) {
+            if (!simData) return;
+            const state = simData.states[frame];
+            const action = simData.actions[frame];
+            const qVal = simData.qValues[frame];
+
+            statStep.innerText = `${frame + 1} / ${totalSteps}`;
+            statAction.innerText = actionText[action];
+            statAction.className = `badge ${actionBadges[action]}`;
+            statPrice.innerText = state[0].toFixed(2);
+            statMomentum.innerText = state[1].toFixed(2);
+            statVolatility.innerText = state[2].toFixed(2);
+            statQval.innerText = qVal.toFixed(2);
+        }
+
+        function generateQSurface() {
+            const gridSize = 20;
+            const prices = simData.states.map(s => s[0]);
+            const momentums = simData.states.map(s => s[1]);
+            const volatilities = simData.states.map(s => s[2]);
+
+            const pMin = Math.min(...prices), pMax = Math.max(...prices);
+            const mMin = Math.min(...momentums), mMax = Math.max(...momentums);
+            const avgVol = volatilities.reduce((a, b) => a + b, 0) / volatilities.length;
+
+            const px = [];
+            const my = [];
+            for (let i = 0; i < gridSize; i++) {
+                px.push(pMin + (i * (pMax - pMin)) / (gridSize - 1));
+                my.push(mMin + (i * (mMax - mMin)) / (gridSize - 1));
+            }
+
+            const pxx = [];
+            const myy = [];
+            const zValues = [];
+            const cValues = []; // Colormap colors based on virtual surface q-value
+
+            for (let j = 0; j < gridSize; j++) {
+                const zRow = [];
+                const cRow = [];
+                for (let i = 0; i < gridSize; i++) {
+                    zRow.push(avgVol);
+                    // Match Python Q-value surface equation: np.tanh((pxx-100)/10) * np.tanh(myy)
+                    const qSurf = Math.tanh((px[i] - 100) / 10) * Math.tanh(my[j]);
+                    cRow.push(qSurf);
+                }
+                zValues.push(zRow);
+                cValues.push(cRow);
+            }
+
+            return {
+                x: px,
+                y: my,
+                z: zValues,
+                type: 'surface',
+                colorscale: 'Viridis',
+                surfacecolor: cValues,
+                opacity: 0.25,
+                showscale: false,
+                name: 'Q-Value Surface'
+            };
+        }
+
+        function renderPlot() {
+            const prices = simData.states.map(s => s[0]);
+            const momentums = simData.states.map(s => s[1]);
+            const volatilities = simData.states.map(s => s[2]);
+
+            // Setup colors based on action
+            const markerColors = simData.actions.map(a => {
+                if (a === 1) return '#10b981'; // green
+                if (a === 2) return '#ef4444'; // red
+                return '#9ca3af'; // gray
+            });
+
+            const surfaceData = generateQSurface();
+
+            // Trace for historical/existing trajectory
+            const scatterTrace = {
+                x: [prices[0]],
+                y: [momentums[0]],
+                z: [volatilities[0]],
+                mode: 'markers+lines',
+                type: 'scatter3d',
+                marker: {
+                    size: 5,
+                    color: [markerColors[0]],
+                    line: { color: '#000000', width: 0.5 },
+                    opacity: 0.8
+                },
+                line: {
+                    color: 'rgba(255, 255, 255, 0.3)',
+                    width: 2
+                },
+                name: 'Agent Trajectory'
+            };
+
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                scene: {
+                    xaxis: { 
+                        title: 'Price', 
+                        gridcolor: 'rgba(255,255,255,0.05)',
+                        backgroundcolor: 'rgba(0,0,0,0)',
+                        color: '#9ca3af',
+                        range: [Math.min(...prices), Math.max(...prices)]
+                    },
+                    yaxis: { 
+                        title: 'Momentum', 
+                        gridcolor: 'rgba(255,255,255,0.05)',
+                        backgroundcolor: 'rgba(0,0,0,0)',
+                        color: '#9ca3af',
+                        range: [Math.min(...momentums), Math.max(...momentums)]
+                    },
+                    zaxis: { 
+                        title: 'Volatility', 
+                        gridcolor: 'rgba(255,255,255,0.05)',
+                        backgroundcolor: 'rgba(0,0,0,0)',
+                        color: '#9ca3af',
+                        range: [Math.min(...volatilities), Math.max(...volatilities)]
+                    },
+                    camera: {
+                        eye: { x: 1.5, y: 1.5, z: 1.2 }
+                    }
+                },
+                showlegend: false
+            };
+
+            const config = { responsive: true, displayModeBar: false };
+
+            Plotly.newPlot('plot-div', [scatterTrace, surfaceData], layout, config).then(() => {
+                loader.classList.add('hidden');
+            });
+        }
+
+        function animateStep() {
+            if (!simData) return;
+            if (animationFrame >= totalSteps - 1) {
+                pause();
+                return;
+            }
+
+            animationFrame++;
+            updateStats(animationFrame);
+
+            const prices = simData.states.slice(0, animationFrame + 1).map(s => s[0]);
+            const momentums = simData.states.slice(0, animationFrame + 1).map(s => s[1]);
+            const volatilities = simData.states.slice(0, animationFrame + 1).map(s => s[2]);
+
+            const colors = simData.actions.slice(0, animationFrame + 1).map(a => {
+                if (a === 1) return '#10b981';
+                if (a === 2) return '#ef4444';
+                return '#9ca3af';
+            });
+
+            // Fast restyle/update for real-time visualization performance
+            Plotly.restyle('plot-div', {
+                x: [prices],
+                y: [momentums],
+                z: [volatilities],
+                'marker.color': [colors]
+            }, [0]);
+        }
+
+        function play() {
+            isPlaying = true;
+            playPauseBtn.innerText = 'Pause';
+            playPauseBtn.style.backgroundColor = 'var(--color-sell)';
+            playInterval = setInterval(animateStep, speedMs);
+        }
+
+        function pause() {
+            isPlaying = false;
+            playPauseBtn.innerText = 'Play';
+            playPauseBtn.style.backgroundColor = 'var(--color-accent)';
+            clearInterval(playInterval);
+        }
+
+        // Control Event Listeners
+        playPauseBtn.addEventListener('click', () => {
+            if (isPlaying) pause();
+            else play();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            pause();
+            animationFrame = 0;
+            updateStats(0);
+            
+            const state = simData.states[0];
+            const action = simData.actions[0];
+            const color = action === 1 ? '#10b981' : (action === 2 ? '#ef4444' : '#9ca3af');
+
+            Plotly.restyle('plot-div', {
+                x: [[state[0]]],
+                y: [[state[1]]],
+                z: [[state[2]]],
+                'marker.color': [[color]]
+            }, [0]);
+        });
+
+        speedRange.addEventListener('input', (e) => {
+            speedMs = parseInt(e.target.value);
+            speedVal.innerText = `${speedMs} ms`;
+            if (isPlaying) {
+                pause();
+                play();
+            }
+        });
+
+        stepsRange.addEventListener('input', (e) => {
+            totalSteps = parseInt(e.target.value);
+            stepsVal.innerText = `${totalSteps} steps`;
+        });
+
+        simulateBtn.addEventListener('click', () => {
+            pause();
+            generateData();
+        });
+
+        // Initialize simulation
+        window.addEventListener('load', () => {
+            generateData();
+        });
+    </script>
+</body>
+</html>
