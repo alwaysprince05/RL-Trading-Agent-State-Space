@@ -3,26 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D RL Trading Agent State Space Visualization</title>
+    <title>HFT State Space Terminal - RL Agent Viz</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Orbitron:wght@400;600;800;900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <!-- Plotly.js CDN -->
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
         :root {
-            --bg-color: #0d0f13;
-            --card-bg: rgba(22, 28, 36, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --color-buy: #10b981;
-            --color-sell: #ef4444;
-            --color-hold: #6b7280;
-            --color-accent: #6366f1;
-            --font-main: 'Outfit', sans-serif;
+            --bg-darker: #050608;
+            --bg-dark: #090b0e;
+            --bg-panel: rgba(13, 17, 23, 0.85);
+            --border-neon: rgba(0, 243, 255, 0.15);
+            --border-neon-glow: rgba(0, 243, 255, 0.4);
+            
+            --neon-cyan: #00f3ff;
+            --neon-green: #39ff14;
+            --neon-pink: #ff007f;
+            --neon-orange: #ff7300;
+            
+            --text-primary: #e2e8f0;
+            --text-secondary: #64748b;
+            --text-muted: #334155;
+            
             --font-display: 'Orbitron', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+            --font-main: 'Outfit', sans-serif;
         }
 
         * {
@@ -32,7 +39,11 @@
         }
 
         body {
-            background-color: var(--bg-color);
+            background-color: var(--bg-darker);
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px);
+            background-size: 30px 30px;
             color: var(--text-primary);
             font-family: var(--font-main);
             height: 100vh;
@@ -41,57 +52,352 @@
             flex-direction: column;
         }
 
+        /* Scanline Overlay for retro-futuristic HFT feeling */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 999;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
         header {
-            background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, transparent 100%);
-            padding: 1.5rem 2rem;
+            background: rgba(5, 6, 8, 0.95);
+            border-bottom: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            padding: 0.75rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            backdrop-filter: blur(10px);
             z-index: 10;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
         .logo-section h1 {
             font-family: var(--font-display);
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            background: linear-gradient(90deg, #818cf8, #c084fc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 1.4rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.6), 0 0 20px rgba(0, 243, 255, 0.3);
         }
 
-        .logo-section p {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 0.2rem;
+        .logo-section .badge-mode {
+            background: rgba(255, 0, 127, 0.15);
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            box-shadow: 0 0 8px rgba(255, 0, 127, 0.2);
+            font-weight: bold;
         }
 
-        .dashboard-container {
+        .system-status {
             display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; box-shadow: 0 0 12px var(--neon-green); }
+        }
+
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 320px;
             flex: 1;
+            overflow: hidden;
+            background: var(--bg-dark);
+        }
+
+        /* Panels layout styling */
+        .panel {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-neon);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-right {
+            border-right: none;
+            border-left: 1px solid var(--border-neon);
+        }
+
+        .panel-header {
+            padding: 0.6rem 1rem;
+            background: rgba(0, 243, 255, 0.05);
+            border-bottom: 1px solid var(--border-neon);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px rgba(0, 243, 255, 0.4);
+        }
+
+        .panel-body {
+            padding: 1rem;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* HFT Widgets styling */
+        .hft-card {
+            background: rgba(5, 6, 8, 0.8);
+            border: 1px solid var(--border-neon);
+            border-radius: 6px;
             overflow: hidden;
         }
 
-        .sidebar {
-            width: 320px;
-            background: var(--card-bg);
-            border-right: 1px solid var(--border-color);
-            backdrop-filter: blur(15px);
-            padding: 1.5rem;
+        .hft-card-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.4rem 0.75rem;
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-neon);
             display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            overflow-y: auto;
-            z-index: 5;
+            justify-content: space-between;
         }
 
-        .viz-area {
+        .hft-card-body {
+            padding: 0.75rem;
+        }
+
+        /* Order Book Display */
+        .orderbook-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.2rem 0;
+        }
+        .ob-bid { color: var(--neon-green); text-align: left; }
+        .ob-ask { color: var(--neon-pink); text-align: left; }
+        .ob-vol { color: var(--text-secondary); text-align: right; }
+        .ob-price { text-align: center; color: var(--text-primary); }
+
+        /* Terminals logs */
+        .console-log {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--neon-green);
+            background: #020304;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid rgba(57, 255, 20, 0.2);
+            height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .metric-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 0.2rem;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        .metric-value.glowing-cyan { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(0, 243, 255, 0.4); }
+        .metric-value.glowing-green { color: var(--neon-green); text-shadow: 0 0 8px rgba(57, 255, 20, 0.4); }
+        .metric-value.glowing-pink { color: var(--neon-pink); text-shadow: 0 0 8px rgba(255, 0, 127, 0.4); }
+        .metric-value.glowing-orange { color: var(--neon-orange); text-shadow: 0 0 8px rgba(255, 115, 0, 0.4); }
+
+        /* Actions panel */
+        .actions-terminal {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .action-indicator {
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 900;
+            text-align: center;
+            letter-spacing: 2px;
+            border: 1px solid transparent;
+        }
+
+        .ind-hold {
+            background: rgba(100, 116, 139, 0.1);
+            border-color: var(--text-secondary);
+            color: var(--text-secondary);
+        }
+
+        .ind-buy {
+            background: rgba(57, 255, 20, 0.1);
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+            animation: pulse-glow-green 1s infinite alternate;
+        }
+
+        .ind-sell {
+            background: rgba(255, 0, 127, 0.1);
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+            animation: pulse-glow-pink 1s infinite alternate;
+        }
+
+        @keyframes pulse-glow-green {
+            from { box-shadow: 0 0 5px rgba(57, 255, 20, 0.1); }
+            to { box-shadow: 0 0 15px rgba(57, 255, 20, 0.4); }
+        }
+
+        @keyframes pulse-glow-pink {
+            from { box-shadow: 0 0 5px rgba(255, 0, 127, 0.1); }
+            to { box-shadow: 0 0 15px rgba(255, 0, 127, 0.4); }
+        }
+
+        /* Controls styling */
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .control-row label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: var(--text-muted);
+            outline: none;
+            border-radius: 2px;
+            accent-color: var(--neon-cyan);
+        }
+
+        /* Buttons styling */
+        .btn-neon {
+            background: transparent;
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 5px rgba(0, 243, 255, 0.4);
+            box-shadow: inset 0 0 5px rgba(0, 243, 255, 0.1);
+        }
+
+        .btn-neon:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            text-shadow: none;
+        }
+
+        .btn-neon-pink {
+            color: var(--neon-pink);
+            border-color: var(--neon-pink);
+            text-shadow: 0 0 5px rgba(255, 0, 127, 0.4);
+            box-shadow: inset 0 0 5px rgba(255, 0, 127, 0.1);
+        }
+
+        .btn-neon-pink:hover {
+            background: var(--neon-pink);
+            color: #000;
+            box-shadow: 0 0 10px var(--neon-pink);
+            text-shadow: none;
+        }
+
+        .btn-neon-secondary {
+            color: var(--text-secondary);
+            border-color: var(--text-muted);
+            text-shadow: none;
+            box-shadow: none;
+        }
+
+        .btn-neon-secondary:hover {
+            background: var(--text-secondary);
+            color: #000;
+            box-shadow: 0 0 8px var(--text-secondary);
+        }
+
+        /* 3D Visualizer wrapper */
+        .viz-container {
             flex: 1;
             position: relative;
-            background-color: #0b0c10;
+            background: #040507;
         }
 
         #plot-div {
@@ -99,109 +405,6 @@
             height: 100%;
         }
 
-        .card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.25rem;
-        }
-
-        .card-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* Controls styling */
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .control-group label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        input[type="range"] {
-            width: 100%;
-            accent-color: var(--color-accent);
-            cursor: pointer;
-        }
-
-        .btn {
-            background-color: var(--color-accent);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.25rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5rem;
-            font-family: var(--font-main);
-            width: 100%;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .buttons-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-        }
-
-        /* Stats display */
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        .stat-row:last-child {
-            border-bottom: none;
-        }
-
-        .stat-value {
-            font-weight: 600;
-            font-family: var(--font-display);
-        }
-
-        .badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: bold;
-        }
-
-        .badge-buy { background-color: rgba(16, 185, 129, 0.2); color: var(--color-buy); }
-        .badge-sell { background-color: rgba(239, 68, 68, 0.2); color: var(--color-sell); }
-        .badge-hold { background-color: rgba(107, 114, 128, 0.2); color: var(--color-hold); }
-
-        /* Loader */
         .loader {
             position: absolute;
             top: 50%;
@@ -212,15 +415,20 @@
             align-items: center;
             gap: 1rem;
             z-index: 10;
+            color: var(--neon-cyan);
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
         }
 
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(99, 102, 241, 0.1);
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(0, 243, 255, 0.1);
             border-radius: 50%;
-            border-top-color: var(--color-accent);
-            animation: spin 1s ease-in-out infinite;
+            border-top-color: var(--neon-cyan);
+            box-shadow: 0 0 8px rgba(0, 243, 255, 0.2);
+            animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
@@ -230,121 +438,162 @@
         .hidden {
             display: none !important;
         }
+
+        /* Custom Scrollbar for HFT panel */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-neon);
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-cyan);
+        }
     </style>
 </head>
 <body>
 
     <header>
         <div class="logo-section">
-            <h1>RL Trading Agent</h1>
-            <p>3D State Space Exploration & Learning Path</p>
+            <h1>HFT-VIS // SYSTEM.STABLE</h1>
+            <div class="badge-mode">RL_STATE_SPACE</div>
         </div>
-        <div style="display: flex; gap: 1rem;">
-            <div id="connection-status" class="badge" style="background-color: rgba(99, 102, 241, 0.2); color: #818cf8; display: flex; align-items: center; gap: 0.5rem;">
-                <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #818cf8;"></div>
-                Simulating
+        <div class="system-status">
+            <div class="status-item">
+                <span class="pulse-dot"></span>
+                <span style="color: var(--neon-green)">ENGINE_ONLINE</span>
+            </div>
+            <div class="status-item">
+                <span style="color: var(--text-secondary)">FPS:</span>
+                <span id="fps-val" style="color: var(--neon-cyan)">60.0</span>
+            </div>
+            <div class="status-item">
+                <span style="color: var(--text-secondary)">LATENCY:</span>
+                <span style="color: var(--neon-orange)">0.08ms</span>
             </div>
         </div>
     </header>
 
-    <div class="dashboard-container">
-        <!-- Control sidebar -->
-        <div class="sidebar">
-            <div class="card">
-                <div class="card-title">Agent Controller</div>
-                
-                <div class="buttons-grid" style="margin-bottom: 1rem;">
-                    <button id="play-pause-btn" class="btn">Play</button>
-                    <button id="reset-btn" class="btn btn-secondary">Reset</button>
-                </div>
-
-                <div class="control-group">
-                    <label for="speed-range">Animation Speed (ms/step)</label>
-                    <input type="range" id="speed-range" min="10" max="200" value="40">
-                    <span id="speed-val" style="font-size: 0.8rem; text-align: right; color: var(--text-secondary);">40 ms</span>
-                </div>
-
-                <div class="control-group">
-                    <label for="steps-range">Simulation Steps</label>
-                    <input type="range" id="steps-range" min="100" max="500" value="300">
-                    <span id="steps-val" style="font-size: 0.8rem; text-align: right; color: var(--text-secondary);">300 steps</span>
-                </div>
-
-                <button id="simulate-btn" class="btn btn-secondary">Run New Simulation</button>
+    <div class="dashboard-layout">
+        <!-- Panel 1: Simulation Controls & Metrics -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>SIMULATION PARAMETERS</span>
+                <span style="font-family: var(--font-mono); font-size: 0.65rem;">SEC_01</span>
             </div>
+            <div class="panel-body">
+                <div class="hft-card">
+                    <div class="hft-card-header">
+                        <span>SYS_EXECUTION_CONTROLS</span>
+                    </div>
+                    <div class="hft-card-body" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <button id="play-pause-btn" class="btn-neon">INITIALIZE</button>
+                            <button id="reset-btn" class="btn-neon btn-neon-secondary">SYS_RESET</button>
+                        </div>
+                        
+                        <div class="control-row">
+                            <label for="speed-range">TICK_RATE (ms/step): <span id="speed-val" style="color: var(--neon-cyan)">40</span></label>
+                            <input type="range" id="speed-range" min="10" max="250" value="40">
+                        </div>
 
-            <div class="card">
-                <div class="card-title">Live State Metrics</div>
-                <div class="stat-row">
-                    <span>Current Step</span>
-                    <span id="stat-step" class="stat-value">0</span>
-                </div>
-                <div class="stat-row">
-                    <span>Action Taken</span>
-                    <span id="stat-action" class="badge badge-hold">HOLD</span>
-                </div>
-                <div class="stat-row">
-                    <span>Price</span>
-                    <span id="stat-price" class="stat-value">100.00</span>
-                </div>
-                <div class="stat-row">
-                    <span>Momentum</span>
-                    <span id="stat-momentum" class="stat-value">0.00</span>
-                </div>
-                <div class="stat-row">
-                    <span>Volatility</span>
-                    <span id="stat-volatility" class="stat-value">1.00</span>
-                </div>
-                <div class="stat-row">
-                    <span>Q-Value</span>
-                    <span id="stat-qval" class="stat-value">0.00</span>
-                </div>
-            </div>
+                        <div class="control-row">
+                            <label for="steps-range">DATAPOINT_LIMIT: <span id="steps-val" style="color: var(--neon-cyan)">300</span></label>
+                            <input type="range" id="steps-range" min="100" max="500" value="300">
+                        </div>
 
-            <div class="card">
-                <div class="card-title">Color Legend</div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-buy);"></div>
-                        <span>Buy Action</span>
+                        <button id="simulate-btn" class="btn-neon btn-neon-pink" style="width: 100%;">GENERATE_NEW_RUN</button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-sell);"></div>
-                        <span>Sell Action</span>
+                </div>
+
+                <div class="hft-card">
+                    <div class="hft-card-header">
+                        <span>LIVE_AGENT_TELEMETRY</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--color-hold);"></div>
-                        <span>Hold Action</span>
-                    </div>
-                    <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <div style="width: 24px; height: 12px; background: linear-gradient(90deg, #440154, #21918c, #fde725); opacity: 0.5; border-radius: 2px;"></div>
-                        <span>Q-value surface (Average Volatility)</span>
+                    <div class="hft-card-body" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div class="actions-terminal">
+                            <div class="metric-label" style="text-align: center; margin-bottom: 0.2rem;">DECISION_MATRIX</div>
+                            <div id="action-terminal-ind" class="action-indicator ind-hold">WAITING_INIT</div>
+                        </div>
+
+                        <div class="metrics-grid">
+                            <div class="metric-box">
+                                <span class="metric-label">STEP_INDEX</span>
+                                <span id="stat-step" class="metric-value glowing-cyan">0/300</span>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">VALUATION (Q)</span>
+                                <span id="stat-qval" class="metric-value glowing-orange">0.00</span>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">SYS_PRICE</span>
+                                <span id="stat-price" class="metric-value">100.00</span>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">MOMENTUM</span>
+                                <span id="stat-momentum" class="metric-value">0.00</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Plot Visualization -->
-        <div class="viz-area">
+        <!-- Panel 2: 3D Visualization Area -->
+        <div class="viz-container">
             <div id="loader" class="loader">
                 <div class="spinner"></div>
-                <p>Generating environment...</p>
+                <p style="margin-top: 0.5rem;">COMPUTING STATE SPACE...</p>
             </div>
             <div id="plot-div"></div>
+        </div>
+
+        <!-- Panel 3: Orderbook & Console Log -->
+        <div class="panel panel-right">
+            <div class="panel-header">
+                <span>ORDERBOOK L2 DEPTH</span>
+                <span style="font-family: var(--font-mono); font-size: 0.65rem;">SEC_02</span>
+            </div>
+            <div class="panel-body">
+                <div class="hft-card">
+                    <div class="hft-card-header">
+                        <span>L2_ORDER_BOOK (SYS_PRICE)</span>
+                    </div>
+                    <div class="hft-card-body" id="orderbook-container" style="display: flex; flex-direction: column; gap: 0.2rem; min-height: 180px;">
+                        <!-- Generated Dynamically -->
+                    </div>
+                </div>
+
+                <div class="hft-card">
+                    <div class="hft-card-header">
+                        <span>SYSTEM_KERNEL_OUTPUT</span>
+                    </div>
+                    <div class="hft-card-body">
+                        <div id="console-log" class="console-log">
+                            <div>[KERNEL] SYSTEM INITIALIZED</div>
+                            <div>[KERNEL] AWAITING START COMMAND</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Normal distribution helper (Box-Muller transform)
+        // Box-Muller transform for normal distribution
         function randomNormal(mean = 0, stdDev = 1) {
             let u = 0, v = 0;
             while(u === 0) u = Math.random(); 
             while(v === 0) v = Math.random();
-            const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-            return num * stdDev + mean;
+            return (Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)) * stdDev + mean;
         }
 
-        // Simulate RL Trading Agent
+        // RL Simulator Class
         class RLTradingAgentSimulator {
             constructor(nSteps = 300) {
                 this.nSteps = nSteps;
@@ -388,7 +637,7 @@
             }
         }
 
-        // Dashboard/Visualization Manager
+        // Setup dashboard components
         let simData = null;
         let animationFrame = 0;
         let isPlaying = false;
@@ -396,8 +645,8 @@
         let speedMs = 40;
         let totalSteps = 300;
 
-        const actionText = ["HOLD", "BUY", "SELL"];
-        const actionBadges = ["badge-hold", "badge-buy", "badge-sell"];
+        const actionText = ["HOLD // STEADY", "BUY // EXECUTE", "SELL // EXECUTE"];
+        const actionClasses = ["ind-hold", "ind-buy", "ind-sell"];
 
         // DOM elements
         const playPauseBtn = document.getElementById('play-pause-btn');
@@ -408,12 +657,13 @@
         const stepsVal = document.getElementById('steps-val');
         const simulateBtn = document.getElementById('simulate-btn');
         const loader = document.getElementById('loader');
+        const consoleLog = document.getElementById('console-log');
+        const orderbookContainer = document.getElementById('orderbook-container');
 
         const statStep = document.getElementById('stat-step');
-        const statAction = document.getElementById('stat-action');
+        const actionInd = document.getElementById('action-terminal-ind');
         const statPrice = document.getElementById('stat-price');
         const statMomentum = document.getElementById('stat-momentum');
-        const statVolatility = document.getElementById('stat-volatility');
         const statQval = document.getElementById('stat-qval');
 
         function generateData() {
@@ -422,6 +672,38 @@
             animationFrame = 0;
             updateStats(0);
             renderPlot();
+            logKernel("NEW ENVIRONMENT SIMULATED SUCCESSFULLY");
+            generateOrderBook();
+        }
+
+        function logKernel(msg) {
+            const time = new Date().toISOString().slice(11, 23);
+            const line = document.createElement('div');
+            line.innerHTML = `<span style="color: var(--text-secondary)">[${time}]</span> ${msg}`;
+            consoleLog.appendChild(line);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        function generateOrderBook() {
+            if (!simData) return;
+            const currentPrice = simData.states[animationFrame][0];
+            let html = '';
+            
+            // Asks (Sells)
+            for (let i = 5; i >= 1; i--) {
+                const askPrice = (currentPrice + i * 0.12).toFixed(2);
+                const askSize = Math.floor(Math.random() * 500) + 10;
+                html += `<div class="orderbook-row"><span class="ob-ask">ASK</span><span class="ob-price">${askPrice}</span><span class="ob-vol">${askSize}</span></div>`;
+            }
+            // Spread divider
+            html += `<div style="border-top: 1px dashed var(--border-neon); margin: 0.35rem 0; text-align: center; font-size: 0.65rem; font-family: var(--font-mono); color: var(--neon-cyan)">SPREAD: 0.12</div>`;
+            // Bids (Buys)
+            for (let i = 1; i <= 5; i++) {
+                const bidPrice = (currentPrice - i * 0.12).toFixed(2);
+                const bidSize = Math.floor(Math.random() * 500) + 10;
+                html += `<div class="orderbook-row"><span class="ob-bid">BID</span><span class="ob-price">${bidPrice}</span><span class="ob-vol">${bidSize}</span></div>`;
+            }
+            orderbookContainer.innerHTML = html;
         }
 
         function updateStats(frame) {
@@ -431,11 +713,10 @@
             const qVal = simData.qValues[frame];
 
             statStep.innerText = `${frame + 1} / ${totalSteps}`;
-            statAction.innerText = actionText[action];
-            statAction.className = `badge ${actionBadges[action]}`;
+            actionInd.innerText = actionText[action];
+            actionInd.className = `action-indicator ${actionClasses[action]}`;
             statPrice.innerText = state[0].toFixed(2);
             statMomentum.innerText = state[1].toFixed(2);
-            statVolatility.innerText = state[2].toFixed(2);
             statQval.innerText = qVal.toFixed(2);
         }
 
@@ -457,16 +738,14 @@
             }
 
             const pxx = [];
-            const myy = [];
             const zValues = [];
-            const cValues = []; // Colormap colors based on virtual surface q-value
+            const cValues = [];
 
             for (let j = 0; j < gridSize; j++) {
                 const zRow = [];
                 const cRow = [];
                 for (let i = 0; i < gridSize; i++) {
                     zRow.push(avgVol);
-                    // Match Python Q-value surface equation: np.tanh((pxx-100)/10) * np.tanh(myy)
                     const qSurf = Math.tanh((px[i] - 100) / 10) * Math.tanh(my[j]);
                     cRow.push(qSurf);
                 }
@@ -481,9 +760,9 @@
                 type: 'surface',
                 colorscale: 'Viridis',
                 surfacecolor: cValues,
-                opacity: 0.25,
+                opacity: 0.15,
                 showscale: false,
-                name: 'Q-Value Surface'
+                name: 'Q-Value'
             };
         }
 
@@ -492,16 +771,14 @@
             const momentums = simData.states.map(s => s[1]);
             const volatilities = simData.states.map(s => s[2]);
 
-            // Setup colors based on action
             const markerColors = simData.actions.map(a => {
-                if (a === 1) return '#10b981'; // green
-                if (a === 2) return '#ef4444'; // red
-                return '#9ca3af'; // gray
+                if (a === 1) return '#39ff14'; // neon green
+                if (a === 2) return '#ff007f'; // neon pink
+                return '#64748b'; // gray
             });
 
             const surfaceData = generateQSurface();
 
-            // Trace for historical/existing trajectory
             const scatterTrace = {
                 x: [prices[0]],
                 y: [momentums[0]],
@@ -509,13 +786,13 @@
                 mode: 'markers+lines',
                 type: 'scatter3d',
                 marker: {
-                    size: 5,
+                    size: 4,
                     color: [markerColors[0]],
                     line: { color: '#000000', width: 0.5 },
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 line: {
-                    color: 'rgba(255, 255, 255, 0.3)',
+                    color: 'rgba(0, 243, 255, 0.4)',
                     width: 2
                 },
                 name: 'Agent Trajectory'
@@ -527,28 +804,31 @@
                 margin: { l: 0, r: 0, t: 0, b: 0 },
                 scene: {
                     xaxis: { 
-                        title: 'Price', 
-                        gridcolor: 'rgba(255,255,255,0.05)',
+                        title: 'PRICE', 
+                        gridcolor: 'rgba(0, 243, 255, 0.05)',
                         backgroundcolor: 'rgba(0,0,0,0)',
-                        color: '#9ca3af',
+                        color: '#64748b',
+                        zerolinecolor: 'rgba(0, 243, 255, 0.1)',
                         range: [Math.min(...prices), Math.max(...prices)]
                     },
                     yaxis: { 
-                        title: 'Momentum', 
-                        gridcolor: 'rgba(255,255,255,0.05)',
+                        title: 'MOMENTUM', 
+                        gridcolor: 'rgba(0, 243, 255, 0.05)',
                         backgroundcolor: 'rgba(0,0,0,0)',
-                        color: '#9ca3af',
+                        color: '#64748b',
+                        zerolinecolor: 'rgba(0, 243, 255, 0.1)',
                         range: [Math.min(...momentums), Math.max(...momentums)]
                     },
                     zaxis: { 
-                        title: 'Volatility', 
-                        gridcolor: 'rgba(255,255,255,0.05)',
+                        title: 'VOLATILITY', 
+                        gridcolor: 'rgba(0, 243, 255, 0.05)',
                         backgroundcolor: 'rgba(0,0,0,0)',
-                        color: '#9ca3af',
+                        color: '#64748b',
+                        zerolinecolor: 'rgba(0, 243, 255, 0.1)',
                         range: [Math.min(...volatilities), Math.max(...volatilities)]
                     },
                     camera: {
-                        eye: { x: 1.5, y: 1.5, z: 1.2 }
+                        eye: { x: 1.6, y: 1.6, z: 1.3 }
                     }
                 },
                 showlegend: false
@@ -565,46 +845,62 @@
             if (!simData) return;
             if (animationFrame >= totalSteps - 1) {
                 pause();
+                logKernel("SIMULATION TRAJECTORY COMPLETED");
                 return;
             }
 
             animationFrame++;
             updateStats(animationFrame);
+            
+            if (animationFrame % 5 === 0) {
+                generateOrderBook();
+            }
 
             const prices = simData.states.slice(0, animationFrame + 1).map(s => s[0]);
             const momentums = simData.states.slice(0, animationFrame + 1).map(s => s[1]);
             const volatilities = simData.states.slice(0, animationFrame + 1).map(s => s[2]);
 
             const colors = simData.actions.slice(0, animationFrame + 1).map(a => {
-                if (a === 1) return '#10b981';
-                if (a === 2) return '#ef4444';
-                return '#9ca3af';
+                if (a === 1) return '#39ff14';
+                if (a === 2) return '#ff007f';
+                return '#64748b';
             });
 
-            // Fast restyle/update for real-time visualization performance
             Plotly.restyle('plot-div', {
                 x: [prices],
                 y: [momentums],
                 z: [volatilities],
                 'marker.color': [colors]
             }, [0]);
+
+            // Periodic logs
+            if (animationFrame % 20 === 0) {
+                const action = simData.actions[animationFrame];
+                const actName = action === 1 ? "BUY" : (action === 2 ? "SELL" : "HOLD");
+                logKernel(`TICK: ${animationFrame} | PRICE: ${prices[prices.length-1].toFixed(2)} | ACTION: ${actName}`);
+            }
         }
 
         function play() {
             isPlaying = true;
-            playPauseBtn.innerText = 'Pause';
-            playPauseBtn.style.backgroundColor = 'var(--color-sell)';
+            playPauseBtn.innerText = 'PAUSE';
+            playPauseBtn.style.borderColor = 'var(--neon-pink)';
+            playPauseBtn.style.color = 'var(--neon-pink)';
+            playPauseBtn.style.textShadow = '0 0 5px rgba(255, 0, 127, 0.4)';
             playInterval = setInterval(animateStep, speedMs);
+            logKernel("SIMULATION PLAYBACK INITIATED");
         }
 
         function pause() {
             isPlaying = false;
-            playPauseBtn.innerText = 'Play';
-            playPauseBtn.style.backgroundColor = 'var(--color-accent)';
+            playPauseBtn.innerText = 'RESUME';
+            playPauseBtn.style.borderColor = 'var(--neon-cyan)';
+            playPauseBtn.style.color = 'var(--neon-cyan)';
+            playPauseBtn.style.textShadow = '0 0 5px rgba(0, 243, 255, 0.4)';
             clearInterval(playInterval);
+            logKernel("SIMULATION PLAYBACK PAUSED");
         }
 
-        // Control Event Listeners
         playPauseBtn.addEventListener('click', () => {
             if (isPlaying) pause();
             else play();
@@ -614,10 +910,12 @@
             pause();
             animationFrame = 0;
             updateStats(0);
+            generateOrderBook();
+            logKernel("SYSTEM STATE RESET");
             
             const state = simData.states[0];
             const action = simData.actions[0];
-            const color = action === 1 ? '#10b981' : (action === 2 ? '#ef4444' : '#9ca3af');
+            const color = action === 1 ? '#39ff14' : (action === 2 ? '#ff007f' : '#64748b');
 
             Plotly.restyle('plot-div', {
                 x: [[state[0]]],
@@ -629,7 +927,7 @@
 
         speedRange.addEventListener('input', (e) => {
             speedMs = parseInt(e.target.value);
-            speedVal.innerText = `${speedMs} ms`;
+            speedVal.innerText = speedMs;
             if (isPlaying) {
                 pause();
                 play();
@@ -638,7 +936,7 @@
 
         stepsRange.addEventListener('input', (e) => {
             totalSteps = parseInt(e.target.value);
-            stepsVal.innerText = `${totalSteps} steps`;
+            stepsVal.innerText = totalSteps;
         });
 
         simulateBtn.addEventListener('click', () => {
@@ -646,7 +944,27 @@
             generateData();
         });
 
-        // Initialize simulation
+        // Frame rate indicator loop
+        let lastCalledTime;
+        let fps;
+        function requestFps() {
+            if(!lastCalledTime) {
+                lastCalledTime = Date.now();
+                fps = 0;
+                requestAnimationFrame(requestFps);
+                return;
+            }
+            let delta = (Date.now() - lastCalledTime)/1000;
+            lastCalledTime = Date.now();
+            fps = 1/delta;
+            // Update slightly slower
+            if (Math.random() < 0.1) {
+                document.getElementById("fps-val").innerText = (fps + (Math.random()*2 - 1)).toFixed(1);
+            }
+            requestAnimationFrame(requestFps);
+        }
+        requestFps();
+
         window.addEventListener('load', () => {
             generateData();
         });
